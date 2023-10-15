@@ -1,0 +1,43 @@
+<html>
+  <title>A Break in Time Authentication</title>
+  <body>
+    <script>
+      /*
+ *JavaScript pseudo-code for using Scratch Auth with session based authentication
+ */
+
+// STEP 1: Redirect the user to Scratch Auth (could happen on the frontend as well as the backend)
+// The redirect location is the Base64 encoded URL that Scratch Auth will redirect the user to once they finish authenticating
+// This should be the endpoint of your website that will handle Scratch Auth's response
+let redirectLocation = new Buffer('https://api.example.com/handle').toString('base64');
+res.redirect(`https://auth.itinerary.eu.org/auth/?redirect=${redirectLocation}&name=Scratch Auth Tutorial`);
+
+// STEP 2: The user was redirected to `https://api.example.com/handle`, your API endpoint (happens on the backend)
+import crypto from 'crypto';
+
+// Scratch Auth will add some query parameters to your API endpoint, for example, `privateCode`
+const { privateCode } = req.query;
+
+// You have to verify whether the user has successfully completed the authentication process
+fetch(`https://auth.itinerary.eu.org/api/auth/verifyToken?privateCode=${privateCode}`, { method: 'GET' })
+    .then((response) => response.json())
+    .then((data) => {
+        // The `data` object sent by Scratch Auth will contain notably a `valid` property and a `username` property
+        // If `valid` is `true`, the user has successfully completed authentication process
+        // We also check the redirect location to prevent a malicious site from tricking users into authenticating
+        // to a seemingly innocent portal while in reality logging in to our site.
+        if (data.valid === true && data.redirect === 'https://api.example.com/handle') {
+            // Generate a session document for the user and store it in the database
+            let sessionId = crypto.randomUUID();
+            Database.collection('sessions').insertOne({ sessionId: sessionId, username: data.username });
+            // Respond to the client with the designated session ID
+            // The client should store this in a session cookie
+            res.status(200).json({ sessionId: sessionId });
+        } else {
+            // Respond to the client with an error
+            res.status(403).json({ error: 'Authentication failed' });
+        }
+    });
+    </script>
+  </body>
+</html>
